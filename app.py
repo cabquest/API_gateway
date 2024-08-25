@@ -10,6 +10,7 @@ MICROSERVICES = {
     'auth' : 'http://localhost:9639',
     'booking' : 'http://localhost:9638',
     'ride' : 'http://127.0.0.1:9640',
+    'communication' : 'http://127.0.0.1:9641',
 }
 
 def forward_request(service_url, path, method, headers, data = None, files = None):
@@ -29,14 +30,20 @@ def gateway(service, path):
             headers = {key: value for key, value in request.headers.items() if key != 'Host'}
 
             if request.content_type.startswith('multipart/form-data'):
-                data = {key: value for key, value in request.form.items()}
-                files = {key: (file.filename, file.stream, file.content_type) for key, file in request.files.items()}
-                response = forward_request(service_url, f"/{path}", method, headers, data, files=request.files)
+                print(request.form)
+                print(request.files)
+                form_data = request.form
+                files = request.files
+                forward_url = f'{service_url}/{path}'
+    
+                payload = {key: value for key, value in form_data.items()}
+                file_payload = {key: (file.filename, file.stream, file.content_type) for key, file in files.items()}
+                response = requests.post(forward_url, data=payload, files=file_payload)
 
+                return response.content, response.status_code
             else:
                 data = request.get_json()
                 response = forward_request(service_url, f"/{path}", method, headers, data)
-
             try:
                 response_json = response.json()
                 if 'message' in response_json:
@@ -67,7 +74,6 @@ def gateway(service, path):
                         'Content-Length': response.headers.get('Content-Length', '')
                     }
                 )
-
 
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0", port = 9637)
